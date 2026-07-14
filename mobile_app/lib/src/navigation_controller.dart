@@ -122,12 +122,12 @@ class NavigationController extends ChangeNotifier {
     final positionSubscription = _positionSubscription;
     final headingSubscription = _headingSubscription;
     if (positionSubscription != null) {
-      unawaited(positionSubscription.cancel());
+      positionSubscription.cancel();
     }
     if (headingSubscription != null) {
-      unawaited(headingSubscription.cancel());
+      headingSubscription.cancel();
     }
-    unawaited(_bleService.dispose());
+    _bleService.dispose();
     super.dispose();
   }
 
@@ -159,12 +159,14 @@ class NavigationController extends ChangeNotifier {
     errorMessage = null;
     _syncProjection();
     if (_shouldRefreshRoute(position)) {
-      unawaited(_refreshRoute(
-        position: position,
-        apiKey: _activeApiKey,
-      ));
+      scheduleMicrotask(() {
+        _refreshRoute(
+          position: position,
+          apiKey: _activeApiKey,
+        );
+      });
     } else {
-      unawaited(_pushBleUpdate());
+      scheduleMicrotask(_pushBleUpdate);
     }
     notifyListeners();
   }
@@ -177,7 +179,7 @@ class NavigationController extends ChangeNotifier {
 
     currentHeading = _normalizeHeading(heading);
     _syncProjection();
-    unawaited(_pushBleUpdate());
+    scheduleMicrotask(_pushBleUpdate);
     notifyListeners();
   }
 

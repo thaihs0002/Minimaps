@@ -91,7 +91,9 @@ class BleNavigationService {
       _connectionSubscription = device.connectionState.listen((state) {
         if (state == BluetoothConnectionState.disconnected) {
           _characteristic = null;
-          unawaited(Future<void>.delayed(const Duration(seconds: 2), start));
+          Timer(const Duration(seconds: 2), () {
+            start();
+          });
         }
       });
       device.cancelWhenDisconnected(
