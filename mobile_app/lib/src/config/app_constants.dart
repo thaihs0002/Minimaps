@@ -11,6 +11,12 @@ class AppConstants {
   static const mapHeight = 150;
   static const maxRoutePoints = 10;
   static const defaultPixelsPerMeter = 1.5;
+  // Approximate distance in meters represented by one degree at the equator.
+  static const metersPerDegreeAtEquator = 111320.0;
+  // Re-fetch the route after meaningful movement to keep next-turn data fresh.
+  static const routeRefreshDistanceM = 25.0;
+  // Re-fetch periodically so the TFT route stays aligned during slow traffic.
+  static const routeRefreshInterval = Duration(seconds: 15);
 
   static const defaultDestinationLat = 10.77653;
   static const defaultDestinationLng = 106.70098;

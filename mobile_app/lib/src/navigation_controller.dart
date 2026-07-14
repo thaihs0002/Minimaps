@@ -42,6 +42,7 @@ class NavigationController extends ChangeNotifier {
   double pixelsPerMeter = AppConstants.defaultPixelsPerMeter;
   double currentHeading = 0;
   int currentSpeedKmh = 0;
+  String _activeApiKey = AppConstants.vietmapApiKey;
 
   DateTime? _lastRouteRefreshAt;
   Position? _lastRouteRefreshOrigin;
@@ -91,6 +92,7 @@ class NavigationController extends ChangeNotifier {
     }
 
     destination = LatLng(latitude, longitude);
+    _activeApiKey = apiKey;
     await _refreshRoute(position: position, apiKey: apiKey);
   }
 
@@ -159,7 +161,7 @@ class NavigationController extends ChangeNotifier {
     if (_shouldRefreshRoute(position)) {
       unawaited(_refreshRoute(
         position: position,
-        apiKey: AppConstants.vietmapApiKey,
+        apiKey: _activeApiKey,
       ));
     } else {
       unawaited(_pushBleUpdate());
@@ -180,7 +182,7 @@ class NavigationController extends ChangeNotifier {
   }
 
   bool _shouldRefreshRoute(Position position) {
-    if (destination == null || isFetchingRoute || AppConstants.vietmapApiKey.isEmpty) {
+    if (destination == null || isFetchingRoute || _activeApiKey.isEmpty) {
       return false;
     }
     if (_lastRouteRefreshAt == null || _lastRouteRefreshOrigin == null) {
@@ -194,7 +196,8 @@ class NavigationController extends ChangeNotifier {
       position.longitude,
     );
     final age = DateTime.now().difference(_lastRouteRefreshAt!);
-    return distance >= 25 || age >= const Duration(seconds: 15);
+    return distance >= AppConstants.routeRefreshDistanceM ||
+        age >= AppConstants.routeRefreshInterval;
   }
 
   Future<void> _refreshRoute({

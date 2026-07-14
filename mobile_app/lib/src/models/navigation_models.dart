@@ -86,6 +86,8 @@ class BleNavPayload {
     final pairCount = min(pointsX.length, pointsY.length);
     final payload = Uint8List(7 + pairCount * 2);
     payload[0] = turnIconCode.code;
+    // Distance is packed as a 16-bit little-endian value, capped by the
+    // payload format to a maximum range of 65535 meters.
     payload[1] = distanceM & 0xFF;
     payload[2] = (distanceM >> 8) & 0xFF;
     payload[3] = hour.clamp(0, 23).toInt();

@@ -31,7 +31,11 @@ class VietmapDirectionsService {
 
       final decoded = jsonDecode(response.body) as Map<String, dynamic>;
       if (decoded['code'] != 'Ok') {
-        throw Exception(decoded['message'] ?? 'Directions API returned an error');
+        final code = decoded['code'] ?? 'unknown';
+        final message = decoded['message'] ?? 'Directions API returned an error';
+        throw Exception(
+          '$message ($code)',
+        );
       }
 
       final routes = decoded['routes'] as List<dynamic>?;

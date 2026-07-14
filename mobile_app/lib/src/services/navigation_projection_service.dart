@@ -28,9 +28,12 @@ class NavigationProjectionService {
     final headingRadians = headingDegrees * pi / 180;
     final cosHeading = cos(headingRadians);
     final sinHeading = sin(headingRadians);
-    final metersPerDegreeLat = 111320.0;
+    // Approximate meters per degree at the equator; longitude is adjusted
+    // below by the current latitude cosine factor.
+    final metersPerDegreeLat = AppConstants.metersPerDegreeAtEquator;
     final metersPerDegreeLon =
-        111320.0 * cos(userPosition.latitude * pi / 180).abs();
+        AppConstants.metersPerDegreeAtEquator *
+            cos(userPosition.latitude * pi / 180).abs();
 
     final pointsX = <int>[];
     final pointsY = <int>[];
