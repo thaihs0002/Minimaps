@@ -88,14 +88,14 @@ class BleNavPayload {
     payload[0] = turnIconCode.code;
     payload[1] = distanceM & 0xFF;
     payload[2] = (distanceM >> 8) & 0xFF;
-    payload[3] = hour.clamp(0, 23) as int;
-    payload[4] = minute.clamp(0, 59) as int;
-    payload[5] = speedLimit.clamp(0, 255) as int;
-    payload[6] = currentSpeed.clamp(0, 255) as int;
+    payload[3] = hour.clamp(0, 23).toInt();
+    payload[4] = minute.clamp(0, 59).toInt();
+    payload[5] = speedLimit.clamp(0, 255).toInt();
+    payload[6] = currentSpeed.clamp(0, 255).toInt();
 
     for (var i = 0; i < pairCount; i++) {
-      payload[7 + i * 2] = pointsX[i].clamp(0, 255) as int;
-      payload[8 + i * 2] = pointsY[i].clamp(0, 255) as int;
+      payload[7 + i * 2] = pointsX[i].clamp(0, 255).toInt();
+      payload[8 + i * 2] = pointsY[i].clamp(0, 255).toInt();
     }
     return payload;
   }

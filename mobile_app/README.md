@@ -1,6 +1,6 @@
 # Minimaps mobile app
 
-This folder contains the Flutter client for the ESP32 sketch in `/home/runner/work/Minimaps/Minimaps/Minimaps.ino`.
+This folder contains the Flutter client for the ESP32 sketch in `../Minimaps.ino`.
 
 ## Features
 - Vietmap route rendering with the light/minimal style
