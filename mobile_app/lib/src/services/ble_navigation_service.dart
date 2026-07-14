@@ -92,7 +92,10 @@ class BleNavigationService {
         if (state == BluetoothConnectionState.disconnected) {
           _characteristic = null;
           Timer(const Duration(seconds: 2), () {
-            start().catchError((Object _, StackTrace __) {});
+            start().catchError((Object error, StackTrace stackTrace) {
+              // Reconnect retries should not crash the UI isolate.
+              print('BLE reconnect failed: $error');
+            });
           });
         }
       });

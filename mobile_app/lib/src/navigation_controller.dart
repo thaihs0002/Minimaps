@@ -86,7 +86,8 @@ class NavigationController extends ChangeNotifier {
       return;
     }
     if (apiKey.isEmpty) {
-      errorMessage = 'Provide VIETMAP_API_KEY before loading a route.';
+      errorMessage =
+          'Provide VIETMAP_API_KEY via --dart-define before loading a route.';
       notifyListeners();
       return;
     }
