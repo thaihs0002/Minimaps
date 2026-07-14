@@ -86,6 +86,7 @@ struct NavData {
   uint8_t hour = 0;
   uint8_t minute = 0;
   uint8_t speedLimit = 0;
+  uint8_t currentSpeed = 0;
   uint8_t pointsX[MAX_POINTS] = {0};
   uint8_t pointsY[MAX_POINTS] = {0};
   uint8_t pointCount = 0;
@@ -98,9 +99,12 @@ NavData navData;
 // Cache for Zone B partial redraw
 uint8_t prevTurnIconCode = 255;
 uint16_t prevDistanceM = 65535;
-uint8_t prevHour = 255;
-uint8_t prevMinute = 255;
 uint8_t prevSpeedLimit = 255;
+uint8_t prevCurrentSpeed = 255;
+
+bool mapSpriteReady = false;
+uint32_t lastMapRenderMs = 0;
+static constexpr uint16_t MAP_REFRESH_MS = 33;
 
 // -----------------------------
 // Button debounce state
@@ -149,6 +153,30 @@ void drawTurnIconDirect(uint8_t iconCode) {
   }
 }
 
+void drawSpeedLimitSign(uint8_t limit) {
+  const int cx = 180;
+  const int cy = 190;
+  const int r = 18;
+
+  // Keep updates local to Zone B.
+  tft.fillRect(cx - 24, cy - 24, 48, 48, TFT_BLACK);
+
+  if (limit == 0) {
+    return;
+  }
+
+  tft.fillCircle(cx, cy, r, TFT_WHITE);
+  tft.drawCircle(cx, cy, r, TFT_RED);
+  tft.drawCircle(cx, cy, r - 1, TFT_RED);
+  tft.drawCircle(cx, cy, r - 2, TFT_RED);
+  tft.drawCircle(cx, cy, r - 3, TFT_RED);
+
+  tft.setTextColor(TFT_BLACK, TFT_WHITE);
+  tft.setTextDatum(MC_DATUM);
+  tft.setTextSize(1);
+  tft.drawString(String(limit), cx, cy, 4);
+}
+
 void updateBottomInfo(const NavData& d, bool forceRedraw) {
   tft.setTextColor(TFT_WHITE, TFT_BLACK);
 
@@ -158,32 +186,34 @@ void updateBottomInfo(const NavData& d, bool forceRedraw) {
   }
 
   if (forceRedraw || d.distanceM != prevDistanceM) {
-    tft.fillRect(56, 156, 176, 32, TFT_BLACK);
+    tft.fillRect(54, 156, 100, 32, TFT_BLACK);
     tft.setTextDatum(TL_DATUM);
     tft.setTextSize(2);
-    tft.drawString(String(d.distanceM) + " m", 60, 164, 4);
+    tft.setTextColor(TFT_WHITE, TFT_BLACK);
+    tft.drawString(String(d.distanceM) + " m", 54, 164, 4);
     prevDistanceM = d.distanceM;
   }
 
-  if (forceRedraw || d.speedLimit != prevSpeedLimit) {
-    tft.fillRect(56, 198, 100, 34, TFT_BLACK);
+  if (forceRedraw || d.currentSpeed != prevCurrentSpeed) {
+    tft.fillRect(54, 198, 100, 34, TFT_BLACK);
     tft.setTextSize(2);
-    tft.drawString("SPD " + String(d.speedLimit), 60, 206, 2);
+    tft.setTextColor(TFT_GREEN, TFT_BLACK);
+    tft.drawString(String(d.currentSpeed) + " km/h", 54, 202, 2);
+    prevCurrentSpeed = d.currentSpeed;
+  }
+
+  if (forceRedraw || d.speedLimit != prevSpeedLimit) {
+    drawSpeedLimitSign(d.speedLimit);
     prevSpeedLimit = d.speedLimit;
   }
 
-  if (forceRedraw || d.hour != prevHour || d.minute != prevMinute) {
-    tft.fillRect(156, 198, 80, 34, TFT_BLACK);
-    char timeBuf[8];
-    snprintf(timeBuf, sizeof(timeBuf), "%02u:%02u", d.hour, d.minute);
-    tft.setTextSize(2);
-    tft.drawString(timeBuf, 166, 206, 2);
-    prevHour = d.hour;
-    prevMinute = d.minute;
-  }
 }
 
 void updateMapZone(const NavData& d) {
+  if (!mapSpriteReady) {
+    return;
+  }
+
   mapSprite.fillSprite(TFT_BLACK);
 
   if (d.pointCount >= 2) {
@@ -203,6 +233,37 @@ void updateMapZone(const NavData& d) {
     }
   }
 
+  // Smooth 10-second fade cycle (0 -> 200 -> 0), repeated continuously.
+  // Clock is enlarged and centered on the map area for high visibility.
+  const uint32_t fadeCycleMs = 10000;
+  uint32_t phaseMs = millis() % fadeCycleMs;
+  uint16_t half = fadeCycleMs / 2;
+
+  uint8_t gray;
+  if (phaseMs <= half) {
+    gray = static_cast<uint8_t>(map(phaseMs, 0, half, 30, 200));
+  } else {
+    gray = static_cast<uint8_t>(map(phaseMs, half, fadeCycleMs, 200, 30));
+  }
+
+  char hhBuf[3];
+  char mmBuf[3];
+  snprintf(hhBuf, sizeof(hhBuf), "%02u", d.hour);
+  snprintf(mmBuf, sizeof(mmBuf), "%02u", d.minute);
+
+  uint16_t clockColor = tft.color565(gray, gray, gray);
+  mapSprite.setTextDatum(MC_DATUM);
+  mapSprite.setTextSize(3);
+  mapSprite.setTextColor(clockColor, TFT_BLACK);
+
+  // Draw HH and MM only (no separator), stretched close to side edges.
+  // Double-pass drawing makes the 7-segment digits look thicker/larger.
+  const int centerY = 135;
+  mapSprite.drawString(hhBuf, 52, centerY, 8);
+  mapSprite.drawString(hhBuf, 53, centerY, 8);
+  mapSprite.drawString(mmBuf, 188, centerY, 8);
+  mapSprite.drawString(mmBuf, 189, centerY, 8);
+
   drawBikeMarkerOnSprite();
   mapSprite.pushSprite(0, 0);
 }
@@ -219,8 +280,8 @@ class NavCharacteristicCallbacks : public BLECharacteristicCallbacks {
   void onWrite(BLECharacteristic* pCharacteristic) override {
     std::string value = pCharacteristic->getValue();
 
-    // Minimum payload length: 6 bytes
-    if (value.length() < 6) {
+    // Minimum payload length: 7 bytes (new header includes current speed)
+    if (value.length() < 7) {
       return;
     }
 
@@ -233,8 +294,9 @@ class NavCharacteristicCallbacks : public BLECharacteristicCallbacks {
     temp.hour = (b[3] <= 23) ? b[3] : 0;
     temp.minute = (b[4] <= 59) ? b[4] : 0;
     temp.speedLimit = b[5];
+    temp.currentSpeed = b[6];
 
-    size_t coordBytes = value.length() - 6;
+    size_t coordBytes = value.length() - 7;
     size_t pairCount = coordBytes / 2;
     if (pairCount > MAX_POINTS) {
       pairCount = MAX_POINTS;
@@ -242,8 +304,8 @@ class NavCharacteristicCallbacks : public BLECharacteristicCallbacks {
 
     temp.pointCount = static_cast<uint8_t>(pairCount);
     for (uint8_t i = 0; i < temp.pointCount; i++) {
-      temp.pointsX[i] = b[6 + i * 2];
-      temp.pointsY[i] = b[6 + i * 2 + 1];
+      temp.pointsX[i] = b[7 + i * 2];
+      temp.pointsY[i] = b[7 + i * 2 + 1];
     }
 
     portENTER_CRITICAL(&navMux);
@@ -314,6 +376,9 @@ void setup() {
   mapSprite.setColorDepth(8);
   if (mapSprite.createSprite(240, 150) == nullptr) {
     Serial.println("ERROR: mapSprite allocation failed (RAM too low).");
+    mapSpriteReady = false;
+  } else {
+    mapSpriteReady = true;
   }
 
   drawBottomFrame();
@@ -345,7 +410,7 @@ void loop() {
     }
   }
 
-  // 2) UI refresh only when new BLE data arrives
+  // 2) Zone B refresh when new BLE data arrives
   if (newDataReceived) {
     NavData localCopy;
     portENTER_CRITICAL(&navMux);
@@ -353,8 +418,18 @@ void loop() {
     newDataReceived = false;
     portEXIT_CRITICAL(&navMux);
 
-    updateMapZone(localCopy);           // Zone A sprite redraw + push
     updateBottomInfo(localCopy, false); // Zone B partial redraw only if value changed
+  }
+
+  // 3) Zone A refresh periodically for smooth clock toggle/fade animation.
+  uint32_t nowMs = millis();
+  if (nowMs - lastMapRenderMs >= MAP_REFRESH_MS) {
+    lastMapRenderMs = nowMs;
+    NavData localCopy;
+    portENTER_CRITICAL(&navMux);
+    localCopy = navData;
+    portEXIT_CRITICAL(&navMux);
+    updateMapZone(localCopy);
   }
 
   delay(2); // Tiny yield to keep loop responsive
