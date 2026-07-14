@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:vietmap_flutter_gl/vietmap_flutter_gl.dart';
 
@@ -51,6 +53,9 @@ class _NavigationHomePageState extends State<NavigationHomePage> {
   @override
   void dispose() {
     _navigationController.removeListener(_handleControllerUpdate);
+    scheduleMicrotask(() {
+      _navigationController.close();
+    });
     _navigationController.dispose();
     _latController.dispose();
     _lngController.dispose();

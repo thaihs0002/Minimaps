@@ -92,7 +92,7 @@ class BleNavigationService {
         if (state == BluetoothConnectionState.disconnected) {
           _characteristic = null;
           Timer(const Duration(seconds: 2), () {
-            start();
+            start().catchError((Object _, StackTrace __) {});
           });
         }
       });

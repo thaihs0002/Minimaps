@@ -117,18 +117,10 @@ class NavigationController extends ChangeNotifier {
     notifyListeners();
   }
 
-  @override
-  void dispose() {
-    final positionSubscription = _positionSubscription;
-    final headingSubscription = _headingSubscription;
-    if (positionSubscription != null) {
-      positionSubscription.cancel();
-    }
-    if (headingSubscription != null) {
-      headingSubscription.cancel();
-    }
-    _bleService.dispose();
-    super.dispose();
+  Future<void> close() async {
+    await _positionSubscription?.cancel();
+    await _headingSubscription?.cancel();
+    await _bleService.dispose();
   }
 
   Future<void> _requestPermissions() async {
